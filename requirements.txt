@@ -1,0 +1,4 @@
+chardet==5.2.0
+eciespy==0.4.1
+psycopg2==2.9.9
+pywin32==306
