@@ -4,7 +4,7 @@ from ecies import encrypt, decrypt
 import chardet
 import re
 
-import psycopg2
+from psycopg2 import sql
 from connect import connect
 from config import load_config
 
@@ -24,15 +24,10 @@ class InvalidPasswordError(Exception):
   Unacceptable symbols used in password
   """
 
-def sterilize_data(message) -> str:
+class UnauthorizedAccessError(Exception):
   """
-  Function to find any suspicious parts of a message and raise attention.
-  Used to prevent bad things like SQL-injections
-  For data passed to database
-  Input: string, list of forbidded symbols
-  Return: clean sterile data: <str>
+  Only users themselfs, and admin can change user password.
   """
-  pass
 
 def encrypt_data(message, eth_key) -> bytes:
   """
@@ -59,14 +54,12 @@ def is_passwd_valid(passwd) -> bool:
   Input: password
   Return: True if password is valid
   """
-  reg = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!#%*?&]{6,20}$"
-  pattern = re.compile(reg)
-  pattern_match = re.search(pattern, passwd)
-
-  if pattern_match:
-      return True
+  pattern = r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!#%*?&]{6,20}$'
+  print(passwd.decode("utf-8"))
+  if re.match(pattern, passwd.decode("utf-8")):
+    return True
   else:
-      return False
+    return False
 
 def is_email_valid(email) -> bool:
   """
@@ -85,41 +78,61 @@ def get_existing_user_list() -> list[list[str, str]]:
   config = load_config()
   conn = connect(config)
   cur = conn.cursor()
-  cur.execute("Select * from Сотрудники")
+  cur.execute("Select * from Сотрудники;")
   existing_user_list = cur.fetchall()
-  print(existing_user_list)
   cur.close()
   conn.close()
   return [[user[-2],user[-1]] for user in existing_user_list]
 
-def change_user_data(user, find, replacement, field_name):
-  config = load_config()
-  conn = connect(config)
-  cur = conn.cursor()
-  cur.execute((f"update Сотрудники set {field_name} = '{replacement}' where {field_name} = '{find}';"))
-  conn.commit()
-  cur.execute("Select * from Сотрудники")
-  print(cur.fetchall())
-  cur.close()
-  conn.close()
+def is_that_user(user):
+  """
+  Checks if corrent user is trying to access his own data in database
+  """
   pass
+
+def is_admin(user):
+  """
+  Checks if admin is trying to access database
+  """
+  return True
+
+def change_user_data(find, search_field_name, replacement, replacement_field_name) -> bool:
+  """
+  Allows you to make changes in database table "Сотрудники".
+  Returns boolian if query was executed
+  """
+  # if not is_that_user() or  not is_admin():
+  #   raise UnauthorizedAccessError("Action is now allowed")
+  try:
+    config = load_config()
+    conn = connect(config)
+    cur = conn.cursor()
+    # cur.execute("update Сотрудники set Логин = (%s) where (%s) = (%s);", (replacement, "Логин", find))
+    cur.execute(sql.SQL("Update Сотрудники Set {replacement_field_name} = %s Where {search_field_name} = %s").format(
+        replacement_field_name=sql.Identifier(replacement_field_name), search_field_name=sql.Identifier(search_field_name)), (replacement, find))
+    
+    conn.commit()
+    cur.execute(sql.SQL("Select * From{}").format(sql.Identifier('Сотрудники')))
+    print(cur.fetchall())
+    cur.close()
+    conn.close()
+    return True
+  except:
+    return False
 
 def authenticate_user(email, passwd) -> bool :
   if is_email_valid(email) and is_passwd_valid(passwd):
     is_user_exists(email, passwd)
 
 def is_user_exists(email, passwd):
-  get_existing_user_list()
-  if encrypt_data(is_passwd_valid(passwd), eth_key) in existing_passwd_list:
+  if encrypt_data(passwd, eth_key) in get_existing_user_list():
     return True
   else:
     raise InvalidCredentialsError("Invalid user credentials/n")
 
-
 def add_user(new_user, existing_user_list):
   # Before adding user, check if there is repeating login
   pass
-
 
 
 eth_k = generate_eth_key()
@@ -128,7 +141,6 @@ pk_hex = eth_k.public_key.to_hex()  # hex string
 
 # https://chardet.readthedocs.io/en/latest/usage.html#example-using-the-detect-function
 data = bytes('this is a test', 'UTF-8') # each value in string is supposed to be a hex number
-print(chardet.detect(data))
 
 decrypt(sk_hex, encrypt(pk_hex, data))
 
@@ -137,10 +149,8 @@ sk_bytes = secp_k.secret  # bytes
 pk_bytes = secp_k.public_key.format(True)  # bytes
 decrypt(sk_bytes, encrypt(pk_bytes, data))
 
-print(type(decrypt_data(data, eth_k)))
-print(decrypt(sk_bytes, encrypt(pk_bytes, data)))
+# change_user_data("1", 'Пароль', 'NewPetr1', 'Логин')
+change_user_data("NewPetr1", 'Логин', encrypt_passwd(b"mypassword1A#!", generate_eth_key()), 'Пароль')
 
-existing_user_list = get_existing_user_list()
-print(existing_user_list)
-first_user = existing_user_list[0]
-change_user_data(existing_user_list, first_user[0], "multiPetr", "Логин")
+# Successful SQL injection which doesn't work anymore
+# change_user_data("NewerPetr'; update Сотрудники set Пароль = 'EvenBiggerLoser' where Логин = 'NewPetr", "NewPetr1", "Логин")
