@@ -57,8 +57,13 @@ def decrypt_the_file():
     messagebox.showerror(title="Error:", message = " There was no file loaded to decrypt")
 
 
-def run():
-	
+def run_file_encryption():
+  filename = None
+
+  key = generate_key()
+  public_key = create_public_key(key)
+  private_key = create_private_key(key)
+
   root = tkinter.Tk()
   root.title("Cryptofile")
   root.minsize(width=200, height=150)
@@ -78,14 +83,63 @@ def run():
 
 
   root.mainloop()	
-	
-if __name__ == "__main__":
+
+
+def run_string_encryption():
   key = generate_key()
+  
   public_key = create_public_key(key)
   private_key = create_private_key(key)
-  filename = None
 
-  print("pub : ", type(public_key), " --- ", public_key)
-  print("pri : ", type(private_key), " --- ", private_key)
+  root = tkinter.Tk() 
+  root.title("CRYPTOGRAPHY") 
+  root.geometry("425x100") 
 
-  run()
+  def encryptMessage():                    
+    pt = e1.get()
+    ct = encrypt_data(bytes(pt, 'utf-8'), public_key) 
+    e2.insert(0, str(ct)[2:-1]) 
+    
+  def decryptMessage():                  
+    ct1 = e3.get() 
+    # this whole thing is a byproduct of passing actually usefull output when encoding
+    # because decryptMessage receives a string that previously was a bytes string
+    # and gets encoded into bytes string and gets double backslashes
+    # example: b'\x04\xe8\xc7'  --->  '\x04\xe8\xc7'   ---> b'\\x04\\xe8\\xc7'
+    # whish are removed with whole unicode_escape thing
+    pt1 = decrypt_data(bytes(ct1, 'utf-8').decode('unicode_escape').encode("raw_unicode_escape"), private_key) 
+    e4.insert(0, pt1) 
+        
+  # creating labels and positioning them on the grid 
+  label1 = tkinter.Label(root, text ='plain text')                
+  label1.grid(row = 10, column = 1) 
+  label2 = tkinter.Label(root, text ='encrypted text') 
+  label2.grid(row = 11, column = 1) 
+  l3 = tkinter.Label(root, text ="cipher text") 
+  l3.grid(row = 10, column = 10) 
+  l4 = tkinter.Label(root, text ="decrypted text") 
+  l4.grid(row = 11, column = 10) 
+    
+  # creating entries and positioning them on the grid 
+  e1 = tkinter.Entry(root) 
+  e1.grid(row = 10, column = 2) 
+  e2 = tkinter.Entry(root) 
+  e2.grid(row = 11, column = 2) 
+  e3 = tkinter.Entry(root) 
+  e3.grid(row = 10, column = 11) 
+  e4 = tkinter.Entry(root) 
+  e4.grid(row = 11, column = 11) 
+    
+  # creating encryption button to produce the output 
+  ent = tkinter.Button(root, text = "encrypt", bg ="red", fg ="white", command = encryptMessage) 
+  ent.grid(row = 13, column = 2) 
+    
+  # creating decryption button to produce the output 
+  b2 = tkinter.Button(root, text = "decrypt", bg ="green", fg ="white", command = decryptMessage) 
+  b2.grid(row = 13, column = 11) 
+    
+    
+  root.mainloop()
+
+if __name__ == "__main__":
+  run_string_encryption()
