@@ -141,5 +141,11 @@ def run_string_encryption():
     
   root.mainloop()
 
+import db_gui
+
+def run_db_interface():
+  db_gui.main().mainloop()
+
+
 if __name__ == "__main__":
-  run_string_encryption()
+  run_db_interface()
